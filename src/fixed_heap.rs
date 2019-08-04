@@ -101,18 +101,18 @@ impl<T> FixedHammingHeap128<T> {
     }
 
     /// Iterate over the entire queue in best-to-worse order.
-    pub fn iter(&mut self) -> impl Iterator<Item = (&T, u32)> {
+    pub fn iter(&mut self) -> impl Iterator<Item = (u32, &T)> {
         self.distances[..=self.worst as usize]
             .iter()
             .enumerate()
-            .flat_map(|(distance, v)| v.iter().map(move |item| (item, distance as u32)))
+            .flat_map(|(distance, v)| v.iter().map(move |item| (distance as u32, item)))
     }
     /// Iterate over the entire queue in best-to-worse order.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&mut T, u32)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut T)> {
         self.distances[..=self.worst as usize]
             .iter_mut()
             .enumerate()
-            .flat_map(|(distance, v)| v.iter_mut().map(move |item| (item, distance as u32)))
+            .flat_map(|(distance, v)| v.iter_mut().map(move |item| (distance as u32, item)))
     }
 
     /// Add a feature to the search with the precondition we are already at the cap.
