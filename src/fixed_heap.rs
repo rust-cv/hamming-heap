@@ -20,37 +20,66 @@ impl<T> FixedHammingHeap128<T> {
     /// keep `size == cap`.
     pub fn set_capacity(&mut self, cap: usize) {
         assert_ne!(cap, 0);
-        self.set_size(cap);
+        self.set_len(cap);
         self.cap = cap;
+        // After the capacity is changed, if the size now equals the capacity we need to update the worst because it must
+        // actually be set to the worst item.
+        self.worst = 128;
+        if self.size == self.cap {
+            self.update_worst();
+        }
     }
 
-    /// This removes elements until it reaches `size`. If `size` is lower than the current
-    /// number of elements, this does nothing. If the size is lowered, this will unconditionally allow insertions
+    /// This removes elements until it reaches `len`. If `len` is higher than the current
+    /// number of elements, this does nothing. If the len is lowered, this will unconditionally allow insertions
     /// until `cap` is reached.
-    pub fn set_size(&mut self, size: usize) {
-        if size == 0 {
-            for v in &mut self.distances[..] {
+    pub fn set_len(&mut self, len: usize) {
+        if len == 0 {
+            let end = self.end();
+            for v in &mut self.distances[..=end] {
                 v.clear();
             }
             self.size = 0;
             self.worst = 128;
-        } else if size < self.size {
+        } else if len < self.size {
             // Remove the difference between them.
-            for _ in size..self.size {
-                self.remove_worst();
+            let end = self.end();
+            let mut remaining = self.size - len;
+            for vec in &mut self.distances[..=end] {
+                if vec.len() >= remaining {
+                    // This has enough, remove them then break.
+                    vec.drain(vec.len() - remaining..);
+                    break;
+                } else {
+                    // There werent enough, so remove everything and move on.
+                    remaining -= vec.len();
+                    vec.clear();
+                }
             }
-            self.size = size;
+            // When len is less than the cap, worst must be set to 128.
             self.worst = 128;
+            self.size = len;
         }
+    }
+
+    /// Gets the `len` or `size` of the heap.
+    pub fn len(&self) -> usize {
+        self.size
+    }
+
+    /// Checks if the heap is empty.
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
     }
 
     /// Clear the queue while maintaining the allocated memory.
     pub fn clear(&mut self) {
-        self.size = 0;
-        self.worst = 128;
-        for v in self.distances.iter_mut() {
+        let end = self.end();
+        for v in self.distances[..=end].iter_mut() {
             v.clear();
         }
+        self.size = 0;
+        self.worst = 128;
     }
 
     /// Add a feature to the search.
@@ -76,8 +105,7 @@ impl<T> FixedHammingHeap128<T> {
         T: Clone,
     {
         let total_fill = std::cmp::min(s.len(), self.size);
-        for (ix, f) in self
-            .distances
+        for (ix, f) in self.distances[..=self.end()]
             .iter()
             .flat_map(|v| v.iter())
             .take(total_fill)
@@ -102,14 +130,15 @@ impl<T> FixedHammingHeap128<T> {
 
     /// Iterate over the entire queue in best-to-worse order.
     pub fn iter(&mut self) -> impl Iterator<Item = (u32, &T)> {
-        self.distances[..=self.worst as usize]
+        self.distances[..=self.end()]
             .iter()
             .enumerate()
             .flat_map(|(distance, v)| v.iter().map(move |item| (distance as u32, item)))
     }
     /// Iterate over the entire queue in best-to-worse order.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut T)> {
-        self.distances[..=self.worst as usize]
+        let end = self.end();
+        self.distances[..=end]
             .iter_mut()
             .enumerate()
             .flat_map(|(distance, v)| v.iter_mut().map(move |item| (distance as u32, item)))
@@ -133,13 +162,24 @@ impl<T> FixedHammingHeap128<T> {
         }
     }
 
+    /// Gets the smallest known inclusive end of the datastructure.
+    fn end(&self) -> usize {
+        if self.at_cap() {
+            self.worst as usize
+        } else {
+            128
+        }
+    }
+
     /// Updates the worst when it has been set.
     fn update_worst(&mut self) {
-        self.worst -= self.distances[0..=self.worst as usize]
+        // If there is nothing left, it gets reset to 128.
+        self.worst = self.distances[0..=self.worst as usize]
             .iter()
             .rev()
             .position(|v| !v.is_empty())
-            .unwrap() as u32;
+            .map(|n| self.worst - n as u32)
+            .unwrap_or(128);
     }
 
     /// Remove the worst item and update the worst distance.
