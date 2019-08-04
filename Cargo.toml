@@ -1,5 +1,12 @@
 [package]
-name = "hamming-queue"
+name = "hamming-heap"
 version = "0.1.0"
 authors = ["Geordon Worley <vadixidav@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "Amortized constant time min heaps for binary features in nearest neighbor searches"
+keywords = ["heap", "hamming", "binary", "search", "priority"]
+categories = ["algorithms", "data-structures"]
+repository = "https://github.com/rust-photogrammetry/hamming-heap"
+documentation = "https://docs.rs/hamming-heap/"
+readme = "README.md"
