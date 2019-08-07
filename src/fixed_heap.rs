@@ -1,3 +1,4 @@
+use generic_array::{ArrayLength, GenericArray};
 use std::fmt;
 
 /// This keeps the nearest `cap` items at all times.
@@ -7,14 +8,20 @@ use std::fmt;
 /// popping elements in constant time, but that would incur a performance penalty for the highly specialized
 /// purpose this serves. This is specifically tailored for doing hamming space nearest neighbor searches.
 #[derive(Clone)]
-pub struct FixedHammingHeap128<T> {
+pub struct FixedHammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
     cap: usize,
     size: usize,
     worst: u32,
-    distances: [Vec<T>; 129],
+    distances: GenericArray<Vec<T>, W>,
 }
 
-impl<T> FixedHammingHeap128<T> {
+impl<W, T> FixedHammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
     /// This sets the capacity of the queue to `cap`, meaning that adding items to the queue will eject the worst ones
     /// if they are better once `cap` is reached. If the capacity is lowered, this removes the worst elements to
     /// keep `size == cap`.
@@ -24,7 +31,7 @@ impl<T> FixedHammingHeap128<T> {
         self.cap = cap;
         // After the capacity is changed, if the size now equals the capacity we need to update the worst because it must
         // actually be set to the worst item.
-        self.worst = 128;
+        self.worst = W::to_u32() - 1;
         if self.size == self.cap {
             self.update_worst();
         }
@@ -40,7 +47,7 @@ impl<T> FixedHammingHeap128<T> {
                 v.clear();
             }
             self.size = 0;
-            self.worst = 128;
+            self.worst = W::to_u32() - 1;
         } else if len < self.size {
             // Remove the difference between them.
             let end = self.end();
@@ -56,8 +63,8 @@ impl<T> FixedHammingHeap128<T> {
                     vec.clear();
                 }
             }
-            // When len is less than the cap, worst must be set to 128.
-            self.worst = 128;
+            // When len is less than the cap, worst must be set to max.
+            self.worst = W::to_u32() - 1;
             self.size = len;
         }
     }
@@ -79,7 +86,7 @@ impl<T> FixedHammingHeap128<T> {
             v.clear();
         }
         self.size = 0;
-        self.worst = 128;
+        self.worst = W::to_u32() - 1;
     }
 
     /// Add a feature to the search.
@@ -118,7 +125,7 @@ impl<T> FixedHammingHeap128<T> {
 
     /// Gets the worst distance in the queue currently.
     ///
-    /// This is initialized to 128 (which is the worst possible distance) until `cap` elements have been inserted.
+    /// This is initialized to max (which is the worst possible distance) until `cap` elements have been inserted.
     pub fn worst(&self) -> u32 {
         self.worst
     }
@@ -167,19 +174,19 @@ impl<T> FixedHammingHeap128<T> {
         if self.at_cap() {
             self.worst as usize
         } else {
-            128
+            W::to_usize() - 1
         }
     }
 
     /// Updates the worst when it has been set.
     fn update_worst(&mut self) {
-        // If there is nothing left, it gets reset to 128.
+        // If there is nothing left, it gets reset to max.
         self.worst = self.distances[0..=self.worst as usize]
             .iter()
             .rev()
             .position(|v| !v.is_empty())
             .map(|n| self.worst - n as u32)
-            .unwrap_or(128);
+            .unwrap_or(W::to_u32() - 1);
     }
 
     /// Remove the worst item and update the worst distance.
@@ -189,8 +196,9 @@ impl<T> FixedHammingHeap128<T> {
     }
 }
 
-impl<T> fmt::Debug for FixedHammingHeap128<T>
+impl<W, T> fmt::Debug for FixedHammingHeap<W, T>
 where
+    W: ArrayLength<Vec<T>>,
     T: fmt::Debug,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -198,143 +206,16 @@ where
     }
 }
 
-impl<T> Default for FixedHammingHeap128<T> {
+impl<W, T> Default for FixedHammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
     fn default() -> Self {
         Self {
             cap: 0,
             size: 0,
-            worst: 128,
-            distances: [
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-            ],
+            worst: W::to_u32() - 1,
+            distances: std::iter::repeat_with(|| vec![]).collect(),
         }
     }
 }

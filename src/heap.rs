@@ -1,31 +1,29 @@
-//! This is a special heap specifically for 128-bit hamming space searches.
+//! This is a special heap specifically for hamming space searches.
 //!
-//! This queue works by having 129 vectors, one for each distance. When we find that any item
+//! This queue works by having n-bits + 1 vectors, one for each hamming distance. When we find that any item
 //! achieves a distance of `n` at the least, we place the index of that node into the vector associated
 //! with that distance. Any time we take an item off, we place all of its children into the appropriate
 //! distance priorities.
 //!
 //! We maintain the lowest weight vector at any given time in the queue. When a vector runs out,
-//! because of the greedy nature of the search algorithm, we are guaranteed that nothing will ever have a distance
-//! lower than the previous candidates. This means we only have to move the lowest weight vector forwards.
-//! Also, typically every removal will be constant time since we are incredibly likely to find all the nearest
-//! neighbors required before we reach a distance of 64, which is the lowest possible max distance in the root node
-//! (distances of the hamming weights 0-64 and 64-128) and the average distance between two random bit strings.
-//! The more things in the search, the less likely this becomes. Assuming randomly distributed features, we expect
-//! half of the features to have a distance below 64, so it is incredibly likely that all removals are constant time
-//! since we will always encounter a removal below or equal to 64.
+//! we iterate until we find the next-best non-empty distance vector.
 
+use generic_array::{ArrayLength, GenericArray};
 use std::fmt;
 
-type Distances<T> = [Vec<T>; 129];
-
 #[derive(Clone)]
-pub struct HammingHeap128<T> {
-    distances: Distances<T>,
+pub struct HammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
+    distances: GenericArray<Vec<T>, W>,
     best: u32,
 }
 
-impl<T> HammingHeap128<T> {
+impl<W, T> HammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
     /// This allows the queue to be cleared so that we don't need to reallocate memory.
     pub fn clear(&mut self) {
         for v in self.distances[self.best as usize..].iter_mut() {
@@ -40,7 +38,7 @@ impl<T> HammingHeap128<T> {
         loop {
             if let Some(node) = self.distances[self.best as usize].pop() {
                 return Some((self.best, node));
-            } else if self.best == 128 {
+            } else if self.best == W::to_u32() - 1 {
                 return None;
             } else {
                 self.best += 1;
@@ -81,8 +79,9 @@ impl<T> HammingHeap128<T> {
     }
 }
 
-impl<T> fmt::Debug for HammingHeap128<T>
+impl<W, T> fmt::Debug for HammingHeap<W, T>
 where
+    W: ArrayLength<Vec<T>>,
     T: fmt::Debug,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -90,140 +89,13 @@ where
     }
 }
 
-impl<T> Default for HammingHeap128<T> {
+impl<W, T> Default for HammingHeap<W, T>
+where
+    W: ArrayLength<Vec<T>>,
+{
     fn default() -> Self {
         Self {
-            distances: [
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-                vec![],
-            ],
+            distances: std::iter::repeat_with(|| vec![]).collect(),
             best: 0,
         }
     }

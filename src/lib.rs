@@ -1,5 +1,7 @@
 mod fixed_heap;
 mod heap;
 
-pub use heap::HammingHeap128;
-pub use fixed_heap::FixedHammingHeap128;
+pub use fixed_heap::FixedHammingHeap;
+/// Re-export of `generic_array`.
+pub use generic_array;
+pub use heap::HammingHeap;
