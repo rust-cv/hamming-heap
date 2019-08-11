@@ -219,3 +219,27 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[test]
+fn test_fixed_heap() {
+    let mut candidates: FixedHammingHeap<generic_array::typenum::U129, u32> =
+        FixedHammingHeap::default();
+    candidates.set_capacity(3);
+    assert!(candidates.push(5, 0));
+    assert!(candidates.push(4, 1));
+    assert!(candidates.push(3, 2));
+    assert!(!candidates.push(6, 3));
+    assert!(!candidates.push(7, 4));
+    assert!(candidates.push(2, 5));
+    assert!(candidates.push(3, 6));
+    assert!(!candidates.push(10, 7));
+    assert!(!candidates.push(6, 8));
+    assert!(!candidates.push(4, 9));
+    assert!(candidates.push(1, 10));
+    assert!(candidates.push(2, 11));
+    let mut arr = [0; 3];
+    candidates.fill_slice(&mut arr);
+    arr[1..3].sort_unstable();
+    assert_eq!(arr, [10, 5, 11]);
+}
