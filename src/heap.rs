@@ -20,8 +20,7 @@
 ///
 /// ```
 /// use hamming_heap::HammingHeap;
-/// let mut candidates = HammingHeap::new();
-/// candidates.set_distances(129);
+/// let mut candidates = HammingHeap::new_distances(129);
 /// candidates.push((0u128 ^ !0u128).count_ones(), ());
 /// ```
 #[derive(Clone, Debug)]
@@ -33,6 +32,13 @@ pub struct HammingHeap<T> {
 impl<T> HammingHeap<T> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Automatically initializes self with `distances` distances.
+    pub fn new_distances(distances: usize) -> Self {
+        let mut s = Self::new();
+        s.set_distances(distances);
+        s
     }
 
     /// This allows the queue to be cleared so that we don't need to reallocate memory.

@@ -17,8 +17,7 @@
 ///
 /// ```
 /// use hamming_heap::FixedHammingHeap;
-/// let mut candidates = FixedHammingHeap::new();
-/// candidates.set_distances(129);
+/// let mut candidates = FixedHammingHeap::new_distances(129);
 /// candidates.set_capacity(3);
 /// candidates.push((0u128 ^ !0u128).count_ones(), ());
 /// ```
@@ -33,6 +32,13 @@ pub struct FixedHammingHeap<T> {
 impl<T> FixedHammingHeap<T> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Automatically initializes self with `distances` distances.
+    pub fn new_distances(distances: usize) -> Self {
+        let mut s = Self::new();
+        s.set_distances(distances);
+        s
     }
 
     /// This sets the capacity of the queue to `cap`, meaning that adding items to the queue will eject the worst ones
