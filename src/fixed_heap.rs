@@ -1,27 +1,40 @@
-use generic_array::{ArrayLength, GenericArray};
-use std::fmt;
-
 /// This keeps the nearest `cap` items at all times.
 ///
 /// This heap is not intended to be popped. Instead, this maintains the best `cap` items, and then when you are
 /// done adding items, you may fill a slice or iterate over the results. Theoretically, this could also allow
 /// popping elements in constant time, but that would incur a performance penalty for the highly specialized
 /// purpose this serves. This is specifically tailored for doing hamming space nearest neighbor searches.
-#[derive(Clone)]
-pub struct FixedHammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
+///
+/// To use this you will need to call `set_distances` before use. This should be passed the maximum number of
+/// distances. Please keep in mind that the maximum number of hamming distances between an `n` bit number
+/// is `n + 1`. An example would be:
+///
+/// ```
+/// assert_eq!((0u128 ^ !0).count_ones(), 128);
+/// ```
+///
+/// So make sure you use `n + 1` as your `distances` or else you may encounter a runtime panic.
+///
+/// ```
+/// use hamming_heap::FixedHammingHeap;
+/// let mut candidates = FixedHammingHeap::new();
+/// candidates.set_distances(129);
+/// candidates.set_capacity(3);
+/// candidates.push((0u128 ^ !0u128).count_ones(), ());
+/// ```
+#[derive(Clone, Debug)]
+pub struct FixedHammingHeap<T> {
     cap: usize,
     size: usize,
     worst: u32,
-    distances: GenericArray<Vec<T>, W>,
+    distances: Vec<Vec<T>>,
 }
 
-impl<W, T> FixedHammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
+impl<T> FixedHammingHeap<T> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// This sets the capacity of the queue to `cap`, meaning that adding items to the queue will eject the worst ones
     /// if they are better once `cap` is reached. If the capacity is lowered, this removes the worst elements to
     /// keep `size == cap`.
@@ -31,7 +44,7 @@ where
         self.cap = cap;
         // After the capacity is changed, if the size now equals the capacity we need to update the worst because it must
         // actually be set to the worst item.
-        self.worst = W::to_u32() - 1;
+        self.worst = self.distances.len() as u32 - 1;
         if self.size == self.cap {
             self.update_worst();
         }
@@ -47,7 +60,7 @@ where
                 v.clear();
             }
             self.size = 0;
-            self.worst = W::to_u32() - 1;
+            self.worst = self.distances.len() as u32 - 1;
         } else if len < self.size {
             // Remove the difference between them.
             let end = self.end();
@@ -64,7 +77,7 @@ where
                 }
             }
             // When len is less than the cap, worst must be set to max.
-            self.worst = W::to_u32() - 1;
+            self.worst = self.distances.len() as u32 - 1;
             self.size = len;
         }
     }
@@ -81,12 +94,30 @@ where
 
     /// Clear the queue while maintaining the allocated memory.
     pub fn clear(&mut self) {
+        assert_ne!(
+            self.distances.len(),
+            0,
+            "you must call set_distances() before calling clear()"
+        );
         let end = self.end();
         for v in self.distances[..=end].iter_mut() {
             v.clear();
         }
         self.size = 0;
-        self.worst = W::to_u32() - 1;
+        self.worst = self.distances.len() as u32 - 1;
+    }
+
+    /// Set number of distances. Also clears the heap.
+    ///
+    /// This does not preserve the allocated memory, so don't call this on each search.
+    ///
+    /// If you have a 128-bit number, keep in mind that it has `129` distances because
+    /// `128` is one of the possible distances.
+    pub fn set_distances(&mut self, distances: usize) {
+        self.distances.clear();
+        self.distances.resize_with(distances, || vec![]);
+        self.worst = self.distances.len() as u32 - 1;
+        self.size = 0;
     }
 
     /// Add a feature to the search.
@@ -142,6 +173,7 @@ where
             .enumerate()
             .flat_map(|(distance, v)| v.iter().map(move |item| (distance as u32, item)))
     }
+
     /// Iterate over the entire queue in best-to-worse order.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut T)> {
         let end = self.end();
@@ -174,7 +206,7 @@ where
         if self.at_cap() {
             self.worst as usize
         } else {
-            W::to_usize() - 1
+            self.distances.len() - 1
         }
     }
 
@@ -186,7 +218,7 @@ where
             .rev()
             .position(|v| !v.is_empty())
             .map(|n| self.worst - n as u32)
-            .unwrap_or(W::to_u32() - 1);
+            .unwrap_or(self.distances.len() as u32 - 1);
     }
 
     /// Remove the worst item and update the worst distance.
@@ -196,26 +228,13 @@ where
     }
 }
 
-impl<W, T> fmt::Debug for FixedHammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-    T: fmt::Debug,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        self.distances[..].fmt(formatter)
-    }
-}
-
-impl<W, T> Default for FixedHammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
+impl<T> Default for FixedHammingHeap<T> {
     fn default() -> Self {
         Self {
             cap: 0,
             size: 0,
-            worst: W::to_u32() - 1,
-            distances: std::iter::repeat_with(|| vec![]).collect(),
+            worst: 0,
+            distances: vec![],
         }
     }
 }
@@ -223,8 +242,8 @@ where
 #[cfg(test)]
 #[test]
 fn test_fixed_heap() {
-    let mut candidates: FixedHammingHeap<generic_array::typenum::U129, u32> =
-        FixedHammingHeap::default();
+    let mut candidates: FixedHammingHeap<u32> = FixedHammingHeap::new();
+    candidates.set_distances(11);
     candidates.set_capacity(3);
     assert!(candidates.push(5, 0));
     assert!(candidates.push(4, 1));

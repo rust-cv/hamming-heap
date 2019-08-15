@@ -1,34 +1,57 @@
-//! This is a special heap specifically for hamming space searches.
-//!
-//! This queue works by having n-bits + 1 vectors, one for each hamming distance. When we find that any item
-//! achieves a distance of `n` at the least, we place the index of that node into the vector associated
-//! with that distance. Any time we take an item off, we place all of its children into the appropriate
-//! distance priorities.
-//!
-//! We maintain the lowest weight vector at any given time in the queue. When a vector runs out,
-//! we iterate until we find the next-best non-empty distance vector.
-
-use generic_array::{ArrayLength, GenericArray};
-use std::fmt;
-
-#[derive(Clone)]
-pub struct HammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
-    distances: GenericArray<Vec<T>, W>,
+/// This is a special heap specifically for hamming space searches.
+///
+/// This queue works by having n-bits + 1 vectors, one for each hamming distance. When we find that any item
+/// achieves a distance of `n` at the least, we place the index of that node into the vector associated
+/// with that distance. Any time we take an item off, we place all of its children into the appropriate
+/// distance priorities.
+///
+/// We maintain the lowest weight vector at any given time in the queue. When a vector runs out,
+/// we iterate until we find the next-best non-empty distance vector.
+///
+/// To use this you will need to call `set_distances` before use. This should be passed the maximum number of
+/// distances. Please keep in mind that the maximum number of hamming distances between an `n` bit number
+/// is `n + 1`. An example would be:
+///
+/// ```
+/// assert_eq!((0u128 ^ !0).count_ones(), 128);
+/// ```
+///
+/// So make sure you use `n + 1` as your `distances` or else you may encounter a runtime panic.
+///
+/// ```
+/// use hamming_heap::HammingHeap;
+/// let mut candidates = HammingHeap::new();
+/// candidates.set_distances(129);
+/// candidates.push((0u128 ^ !0u128).count_ones(), ());
+/// ```
+#[derive(Clone, Debug)]
+pub struct HammingHeap<T> {
+    distances: Vec<Vec<T>>,
     best: u32,
 }
 
-impl<W, T> HammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
+impl<T> HammingHeap<T> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// This allows the queue to be cleared so that we don't need to reallocate memory.
     pub fn clear(&mut self) {
         for v in self.distances[self.best as usize..].iter_mut() {
             v.clear();
         }
+        self.best = 0;
+    }
+
+    /// Set number of distances. Also clears the heap.
+    ///
+    /// This does not preserve the allocated memory, so don't call this on each search.
+    ///
+    /// If you have a 128-bit number, keep in mind that it has `129` distances because
+    /// `128` is one of the possible distances.
+    pub fn set_distances(&mut self, distances: usize) {
+        self.distances.clear();
+        self.distances.resize_with(distances, || vec![]);
         self.best = 0;
     }
 
@@ -38,7 +61,7 @@ where
         loop {
             if let Some(node) = self.distances[self.best as usize].pop() {
                 return Some((self.best, node));
-            } else if self.best == W::to_u32() - 1 {
+            } else if self.best == self.distances.len() as u32 - 1 {
                 return None;
             } else {
                 self.best += 1;
@@ -79,23 +102,10 @@ where
     }
 }
 
-impl<W, T> fmt::Debug for HammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-    T: fmt::Debug,
-{
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        self.distances[..].fmt(formatter)
-    }
-}
-
-impl<W, T> Default for HammingHeap<W, T>
-where
-    W: ArrayLength<Vec<T>>,
-{
+impl<T> Default for HammingHeap<T> {
     fn default() -> Self {
         Self {
-            distances: std::iter::repeat_with(|| vec![]).collect(),
+            distances: vec![],
             best: 0,
         }
     }

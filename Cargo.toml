@@ -10,6 +10,3 @@ categories = ["algorithms", "data-structures"]
 repository = "https://github.com/rust-photogrammetry/hamming-heap"
 documentation = "https://docs.rs/hamming-heap/"
 readme = "README.md"
-
-[dependencies]
-generic-array = "0.13.2"
